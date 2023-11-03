@@ -2,6 +2,7 @@ from fastapi import APIRouter, HTTPException, WebSocket, Depends
 from music.models import MakeMusicHashModel, CreateGenreModel, CreateArtist
 from database.database import get_db
 import aiosqlite
+from .fingerprint import FingerprintPipeline
 
 router = APIRouter()
 
@@ -14,7 +15,6 @@ async def websocket_endpoint(websocket: WebSocket, websocket_id: int):
         await websocket.send_text(f"Message text was: {data}")
 
 
-
 """
     @ Generate hash of a given song and store it in the database.
 
@@ -25,9 +25,10 @@ async def websocket_endpoint(websocket: WebSocket, websocket_id: int):
  
 """
 
+
 @router.post("/make_hash")
 async def make_hash(
-    music_info: MakeMusicHashModel, db: aiosqlite.Connection = Depends(get_db)
+        music_info: MakeMusicHashModel, db: aiosqlite.Connection = Depends(get_db)
 ):
     cursor = await db.cursor()
     # await cursor.execute("INSERT INTO ")
@@ -37,6 +38,7 @@ async def make_hash(
     @ View all the genres
 
 """
+
 
 @router.get("/genres/")
 async def get_all_genres(db: aiosqlite.Connection = Depends(get_db)):
@@ -50,7 +52,6 @@ async def get_all_genres(db: aiosqlite.Connection = Depends(get_db)):
         raise {"status": 500, "error": str(e)}
     finally:
         await cursor.close()
-
 
 
 """
@@ -75,7 +76,6 @@ async def get_all_artists(db: aiosqlite.Connection = Depends(get_db)):
         await cursor.close()
 
 
-
 """
 
     @ Create a new genre
@@ -92,17 +92,16 @@ async def create_genre(genre: CreateGenreModel, db: aiosqlite.Connection = Depen
         await db.commit()
         return "Succesfully create genre"
     except Exception as e:
-        return {"status":500, "error": str(e)}
+        return {"status": 500, "error": str(e)}
     finally:
         await cursor.close()
-
-
 
 
 """
      @ Create a new artist
 
 """
+
 
 @router.post("/create_artist")
 async def create_artist(artist: CreateArtist, db: aiosqlite.Connection = Depends(get_db)):
@@ -113,6 +112,21 @@ async def create_artist(artist: CreateArtist, db: aiosqlite.Connection = Depends
         await db.commit()
         return "Succesfully created artist"
     except Exception as e:
-        return {"status":500, "error": str(e)}
+        return {"status": 500, "error": str(e)}
     finally:
         await cursor.close()
+
+
+"""
+    @ Generate a sample hash.
+"""
+
+
+@router.get("/hash/{file_name}")
+def generate_hash(file_name: str):
+    f_obj = FingerprintPipeline()
+    hashed_codes = f_obj.fingerprint(file_name)
+
+    return {
+        "hashes": hashed_codes
+    }
