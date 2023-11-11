@@ -6,3 +6,4 @@ fastapi
 uvicorn
 aiosqlite
 websockets
+python-multipart

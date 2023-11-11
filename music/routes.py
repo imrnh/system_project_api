@@ -1,10 +1,14 @@
-from fastapi import APIRouter, HTTPException, WebSocket, Depends
+from fastapi import APIRouter, HTTPException, WebSocket, Depends, File, UploadFile
 from music.models import MakeMusicHashModel, CreateGenreModel, CreateArtist
 from database.database import get_db
 import aiosqlite
 from .fingerprint import FingerprintPipeline
+from .search import SearchPipeline
+import os
+
 
 router = APIRouter()
+
 
 
 @router.websocket("/ws/{websocket_id}")
@@ -26,9 +30,28 @@ async def websocket_endpoint(websocket: WebSocket, websocket_id: int):
 """
 
 
+@router.post("/uploadfile/")
+async def upload_file(file: UploadFile):
+    try:
+        if file.filename:
+            filePath = os.path.join("assets/toRecognize", file.filename)
+            print(filePath)
+            with open(filePath, "wb") as f:
+                f.write(file.file.read())
+            
+            search_pipeline = SearchPipeline()
+            hashes = search_pipeline.serach(file.filename)
+
+            return {"message": "File uploaded successfully", "hash": hashes}
+    except Exception as e:
+        print("ERROR: ---- ", e)
+    return {"message": "No file received"}
+
+
+
 @router.post("/make_hash")
 async def make_hash(
-        music_info: MakeMusicHashModel, db: aiosqlite.Connection = Depends(get_db)
+    music_info: MakeMusicHashModel, db: aiosqlite.Connection = Depends(get_db)
 ):
     cursor = await db.cursor()
     # await cursor.execute("INSERT INTO ")
@@ -84,7 +107,9 @@ async def get_all_artists(db: aiosqlite.Connection = Depends(get_db)):
 
 
 @router.post("/create_genre")
-async def create_genre(genre: CreateGenreModel, db: aiosqlite.Connection = Depends(get_db)):
+async def create_genre(
+    genre: CreateGenreModel, db: aiosqlite.Connection = Depends(get_db)
+):
     cursor = await db.cursor()
 
     try:
@@ -104,11 +129,15 @@ async def create_genre(genre: CreateGenreModel, db: aiosqlite.Connection = Depen
 
 
 @router.post("/create_artist")
-async def create_artist(artist: CreateArtist, db: aiosqlite.Connection = Depends(get_db)):
+async def create_artist(
+    artist: CreateArtist, db: aiosqlite.Connection = Depends(get_db)
+):
     cursor = await db.cursor()
 
     try:
-        await cursor.execute("INSERT INTO artist (artist_name) VALUES (?)", (artist.name,))
+        await cursor.execute(
+            "INSERT INTO artist (artist_name) VALUES (?)", (artist.name,)
+        )
         await db.commit()
         return "Succesfully created artist"
     except Exception as e:
@@ -125,8 +154,6 @@ async def create_artist(artist: CreateArtist, db: aiosqlite.Connection = Depends
 @router.get("/hash/{file_name}")
 def generate_hash(file_name: str):
     f_obj = FingerprintPipeline()
-    hashed_codes = f_obj.fingerprint(file_name)
+    hashed_codes = f_obj.fingerprint(file_name, file_path="/assets/toRecognize")
 
-    return {
-        "hashes": hashed_codes
-    }
+    return {"hashes": hashed_codes}

@@ -16,18 +16,18 @@ class FingerprintPipeline:
     def __init__(self):
         pass
 
-    def read_audio(self, file_name):
-        audio_content, _ = lr.load(
-            audio_config.base_path + "/" + file_name, sr=audio_config.sr)
-        block_count = int(len(audio_content) * (1000 / 100) /
-                          audio_config.sr)  # as 1000ms -> 1sec
+    def read_audio(self, file_name, file_path):
+        audio_content, _ = lr.load(file_path + "/" + file_name, sr=audio_config.sr)
+        block_count = int(
+            len(audio_content) * (1000 / 100) / audio_config.sr
+        )  # as 1000ms -> 1sec
         per_block_length = audio_config.sr * audio_config.block_size / 1000
         blocks = []
 
         for idx in range(block_count):
             start_idx = int(per_block_length * idx)
             end_idx = int(per_block_length * (idx + 1))
-            blocks.append(audio_content[start_idx: end_idx])
+            blocks.append(audio_content[start_idx:end_idx])
 
         return blocks
 
@@ -78,13 +78,12 @@ class FingerprintPipeline:
         bit_length = audio_config.hash_bit_length
 
         def division_size(r_min, r_max):
-            return (
-                    r_max - r_min) / (2 ** bit_length)
+            return (r_max - r_min) / (2**bit_length)
 
         hashed_vals = []
 
         for s_block in audio_blocks:
-            blck_hashes = ['0'] * len(pos_r)
+            blck_hashes = ["0"] * len(pos_r)
             for sv in s_block:
                 for idx, rng_lr in enumerate(pos_r):
                     if (idx + 1) < len(pos_r):
@@ -93,15 +92,14 @@ class FingerprintPipeline:
                         # a random maximum range to allow 250 to infinity in the last container.
                         min_lim_for_sv = 1000
                     if (sv >= rng_lr) and (sv < min_lim_for_sv):
-                        b_h = (sv - rng_lr) / \
-                              division_size(rng_lr, min_lim_for_sv)
+                        b_h = (sv - rng_lr) / division_size(rng_lr, min_lim_for_sv)
                         b_h = hex(int(b_h))
                         blck_hashes[idx] = b_h[2:]
             hashed_vals.append(blck_hashes)
         return hashed_vals
 
-    def fingerprint(self, file_name):
-        audio_blocks = self.read_audio(file_name=file_name)
+    def fingerprint(self, file_name, file_path=audio_config.base_path):
+        audio_blocks = self.read_audio(file_name=file_name, file_path=file_path)
         audio_blocks = self.fourier_transform(audio_blocks=audio_blocks)
         fingerprints = self.get_range_max(audio_blocks)
         hashes = self.hash_function(fingerprints)
