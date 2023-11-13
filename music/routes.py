@@ -5,11 +5,18 @@ import aiosqlite
 from .fingerprint import FingerprintPipeline
 from .search import SearchPipeline
 import os
-
+from .crawler import MusicCrawler
+from fastapi import FastAPI
+from fastapi.params import Query
+from typing import List
+import youtube_dl
+from pydub import AudioSegment
+import random
+import string
 
 router = APIRouter()
 
-
+app = FastAPI()
 
 @router.websocket("/ws/{websocket_id}")
 async def websocket_endpoint(websocket: WebSocket, websocket_id: int):
@@ -157,3 +164,50 @@ def generate_hash(file_name: str):
     hashed_codes = f_obj.fingerprint(file_name, file_path="/assets/toRecognize")
 
     return {"hashes": hashed_codes}
+
+
+@router.get("/crawl")
+def download():
+    sdownload_songs= MusicCrawler()
+    x = sdownload_songs.songdownload()
+    return {x}
+
+def generate_unique_name(size=20):
+    characters = string.ascii_letters + string.digits
+    return ''.join(random.choice(characters) for _ in range(size))
+
+@router.get("/download_mp3")
+async def download_mp3(
+    url: str = Query(..., title="YouTube URL", description="URL of the YouTube video"),
+    music_band_name: str = Query(..., title="Music Band Name", description="Name of the music band"),
+    genre_values: List[int] = Query(..., title="Genre Values", description="List of integer genre values separated by commas"),
+):
+    # Create the directory if it doesn't exist
+    download_folder = "assets/downloaded"
+    os.makedirs(download_folder, exist_ok=True)
+
+    # Generate a unique name for the mp3 file
+    unique_name = generate_unique_name()
+
+    # Download the YouTube video
+    ydl_opts = {
+        'format': 'bestaudio/best',
+        'outtmpl': f'{download_folder}/{unique_name}__%(title)s.%(ext)s',
+    }
+    with youtube_dl.YoutubeDL(ydl_opts) as ydl:
+        info_dict = ydl.extract_info(url, download=True)
+        video_title = info_dict.get('title', 'unknown_title')
+
+    # Convert the video to mp3
+    mp3_file_path = f'{download_folder}/{unique_name}__{video_title}.mp3'
+    audio = AudioSegment.from_file(f'{download_folder}/{unique_name}__{video_title}.webm', format='webm')
+    audio.export(mp3_file_path, format='mp3')
+
+    # Return the result in a dictionary
+    result = {
+        "file_name": f"{unique_name}__{video_title}.mp3",
+        "artist_name": music_band_name,
+        "genre_values": genre_values,
+    }
+
+    return result
