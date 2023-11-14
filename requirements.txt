@@ -8,3 +8,5 @@ aiosqlite
 websockets
 python-multipart
 pytube
+youtube_dl
+pydub

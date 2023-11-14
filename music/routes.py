@@ -1,4 +1,5 @@
 from fastapi import APIRouter, HTTPException, WebSocket, Depends, File, UploadFile
+from pydantic import BaseModel
 from music.models import MakeMusicHashModel, CreateGenreModel, CreateArtist
 from database.database import get_db
 import aiosqlite
@@ -13,10 +14,12 @@ import youtube_dl
 from pydub import AudioSegment
 import random
 import string
+from pytube import YouTube
 
 router = APIRouter()
 
 app = FastAPI()
+
 
 @router.websocket("/ws/{websocket_id}")
 async def websocket_endpoint(websocket: WebSocket, websocket_id: int):
@@ -45,7 +48,7 @@ async def upload_file(file: UploadFile):
             print(filePath)
             with open(filePath, "wb") as f:
                 f.write(file.file.read())
-            
+
             search_pipeline = SearchPipeline()
             hashes = search_pipeline.serach(file.filename)
 
@@ -53,7 +56,6 @@ async def upload_file(file: UploadFile):
     except Exception as e:
         print("ERROR: ---- ", e)
     return {"message": "No file received"}
-
 
 
 @router.post("/make_hash")
@@ -168,46 +170,43 @@ def generate_hash(file_name: str):
 
 @router.get("/crawl")
 def download():
-    sdownload_songs= MusicCrawler()
+    sdownload_songs = MusicCrawler()
     x = sdownload_songs.songdownload()
     return {x}
 
+
 def generate_unique_name(size=20):
     characters = string.ascii_letters + string.digits
-    return ''.join(random.choice(characters) for _ in range(size))
+    return "".join(random.choice(characters) for _ in range(size))
 
-@router.get("/download_mp3")
-async def download_mp3(
-    url: str = Query(..., title="YouTube URL", description="URL of the YouTube video"),
-    music_band_name: str = Query(..., title="Music Band Name", description="Name of the music band"),
-    genre_values: List[int] = Query(..., title="Genre Values", description="List of integer genre values separated by commas"),
-):
-    # Create the directory if it doesn't exist
-    download_folder = "assets/downloaded"
-    os.makedirs(download_folder, exist_ok=True)
 
-    # Generate a unique name for the mp3 file
-    unique_name = generate_unique_name()
+class SongInfo(BaseModel):
+    url: str
+    music_title: str
+    music_band_name: str
+    genre: List[int]
 
-    # Download the YouTube video
-    ydl_opts = {
-        'format': 'bestaudio/best',
-        'outtmpl': f'{download_folder}/{unique_name}__%(title)s.%(ext)s',
-    }
-    with youtube_dl.YoutubeDL(ydl_opts) as ydl:
-        info_dict = ydl.extract_info(url, download=True)
-        video_title = info_dict.get('title', 'unknown_title')
 
-    # Convert the video to mp3
-    mp3_file_path = f'{download_folder}/{unique_name}__{video_title}.mp3'
-    audio = AudioSegment.from_file(f'{download_folder}/{unique_name}__{video_title}.webm', format='webm')
-    audio.export(mp3_file_path, format='mp3')
+@router.post("/download_song/")
+async def download_song(song_info: SongInfo):
+    try:
+        # Create the unique name for the file
+        unique_name = generate_unique_name()
 
-    # Return the result in a dictionary
-    result = {
-        "file_name": f"{unique_name}__{video_title}.mp3",
-        "artist_name": music_band_name,
-        "genre_values": genre_values,
-    }
+        # Download the YouTube video using Pytube
+        yt = YouTube(song_info.url)
+        video_title = yt.title
+        video_stream = yt.streams.filter(only_audio=True).first()
+        file_path = f"{unique_name}__{video_title}.mp3"
+        video_stream.download(output_path="./assets/downloaded", filename=file_path)
 
-    return result
+        # Return the result in the desired format
+        result = {
+            "file_name": f"{unique_name}__{video_title}.mp3",
+            "artist_name": song_info.music_band_name,
+            "genre": song_info.genre,
+        }
+
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error: {str(e)}")
