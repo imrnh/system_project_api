@@ -7,3 +7,4 @@ uvicorn
 aiosqlite
 websockets
 python-multipart
+pytube

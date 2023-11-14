@@ -4,14 +4,18 @@
         # Generate hash.
         # Iteratively push hash to the db.
 """
-
-from fingerprint import FingerprintPipeline
+from pytube import YouTube
+from .fingerprint import FingerprintPipeline
 
 
 class MusicCrawler:
 
     def __int__(self):
         self.fingerprint_generator = FingerprintPipeline()
+    
+    def songdownload(self): 
+        yt = YouTube('http://youtube.com/watch?v=2lAe1cqCOXo')
+        return yt.title
 
     def read_music(self):  # read from db.
         pass
