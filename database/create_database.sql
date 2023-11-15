@@ -1,3 +1,4 @@
+
 CREATE TABLE users (
     user_id INTEGER PRIMARY KEY AUTOINCREMENT,
     full_name VARCHAR(50),
@@ -41,6 +42,9 @@ CREATE TABLE music(
     cover_img VARCHAR(255), --URL of the cover image.
     created_at DATETIME DEFAULT (strftime('%Y-%m-%d %H:%M:%S', 'now', '+6 hours'))
 );
+
+    
+ALTER Table music ADD music_url VARCHAR(300)
 
 CREATE TABLE music_artist(
     id INTEGER PRIMARY KEY AUTOINCREMENT,

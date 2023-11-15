@@ -1,3 +1,4 @@
+import time
 from fastapi import APIRouter, HTTPException, WebSocket, Depends, File, UploadFile
 from pydantic import BaseModel
 from music.models import MakeMusicHashModel, CreateGenreModel, CreateArtist
@@ -8,10 +9,7 @@ from .search import SearchPipeline
 import os
 from .crawler import MusicCrawler
 from fastapi import FastAPI
-from fastapi.params import Query
 from typing import List
-import youtube_dl
-from pydub import AudioSegment
 import random
 import string
 from pytube import YouTube
@@ -19,25 +17,6 @@ from pytube import YouTube
 router = APIRouter()
 
 app = FastAPI()
-
-
-@router.websocket("/ws/{websocket_id}")
-async def websocket_endpoint(websocket: WebSocket, websocket_id: int):
-    await websocket.accept()
-    while True:
-        data = await websocket.receive_text()
-        await websocket.send_text(f"Message text was: {data}")
-
-
-"""
-    @ Generate hash of a given song and store it in the database.
-
-    TODO:
-        - Generate the hash
-        - Iteratively insert every hash with certain delay to prevent crash
-        - Sort the database.
- 
-"""
 
 
 @router.post("/uploadfile/")
@@ -49,8 +28,14 @@ async def upload_file(file: UploadFile):
             with open(filePath, "wb") as f:
                 f.write(file.file.read())
 
-            search_pipeline = SearchPipeline()
-            hashes = search_pipeline.serach(file.filename)
+            time.sleep(3)
+
+            fingerprint_pipeline = FingerprintPipeline()
+            hashes = fingerprint_pipeline.fingerprint(
+                file.filename, "assets/toRecognize"
+            )
+
+            os.remove("assets/toRecognize/" + file.filename)
 
             return {"message": "File uploaded successfully", "hash": hashes}
     except Exception as e:
@@ -183,12 +168,15 @@ def generate_unique_name(size=20):
 class SongInfo(BaseModel):
     url: str
     music_title: str
-    music_band_name: str
+    cover_img: str
+    artist: List[int]
     genre: List[int]
 
 
 @router.post("/download_song/")
-async def download_song(song_info: SongInfo):
+async def download_song(
+    song_info: SongInfo, db: aiosqlite.Connection = Depends(get_db)
+):
     try:
         # Create the unique name for the file
         unique_name = generate_unique_name()
@@ -200,10 +188,11 @@ async def download_song(song_info: SongInfo):
         file_path = f"{unique_name}__{video_title}.mp3"
         video_stream.download(output_path="./assets/downloaded", filename=file_path)
 
-        # Return the result in the desired format
+        
+
         result = {
             "file_name": f"{unique_name}__{video_title}.mp3",
-            "artist_name": song_info.music_band_name,
+            "artist_name": song_info.artist,
             "genre": song_info.genre,
         }
 
