@@ -1,3 +1,4 @@
+-- Active: 1699983136943@@127.0.0.1@3306
 
 CREATE TABLE users (
     user_id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -59,15 +60,14 @@ CREATE TABLE music_genre(
     genre_id INTEGER REFERENCES genre(genre_id)
 );
 
-
 CREATE TABLE music_fingerprint(
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     music_id INTEGER REFERENCES music(music_id),
-    music_hash INTEGER,
-    music_hash_with_previous_sec INTEGER,
-    curr_sec INTEGER,
+    music_hash VARCHAR(10),
+    time_idx INTEGER,
     created_at DATETIME DEFAULT (strftime('%Y-%m-%d %H:%M:%S', 'now', '+6 hours')) 
 );
+
 
 
 CREATE TABLE playlist_music (
@@ -76,8 +76,6 @@ CREATE TABLE playlist_music (
     song_id INTEGER REFERENCES song(song_id),
     created_at DATETIME DEFAULT (strftime('%Y-%m-%d %H:%M:%S', 'now', '+6 hours'))
 );
-
-
 
 
 

@@ -10,3 +10,7 @@ python-multipart
 pytube
 youtube_dl
 pydub
+sqlalchemy
+psycog2
+psycopg2-binary
+asyncpg

@@ -1,3 +1,4 @@
+from typing import List
 import numpy as np
 import librosa as lr
 from types import SimpleNamespace
@@ -6,7 +7,7 @@ audio_config = SimpleNamespace(
     base_path="assets/audio",
     sr=44100,
     mono=True,
-    block_size=100,  # in ms
+    block_size=50,  # in ms
     block_ranges=[0, 1, 40, 80, 120, 160, 200],
     hash_bit_length=4,
 )
@@ -19,7 +20,7 @@ class FingerprintPipeline:
     def read_audio(self, file_name, file_path):
         audio_content, _ = lr.load(file_path + "/" + file_name, sr=audio_config.sr)
         block_count = int(
-            len(audio_content) * (1000 / 100) / audio_config.sr
+            len(audio_content) * (1000 / 50) / audio_config.sr
         )  # as 1000ms -> 1sec
         per_block_length = audio_config.sr * audio_config.block_size / 1000
         blocks = []
@@ -33,11 +34,15 @@ class FingerprintPipeline:
 
     def fourier_transform(self, audio_blocks):
         dft_transformed = []
+        dft_transformed_avg = []
         for block in audio_blocks:
             _fft_res_arr = np.abs(np.fft.fft(block))
             dft_transformed.append(_fft_res_arr)
 
-        return dft_transformed
+            block_avg_val = (sum(_fft_res_arr) / len(_fft_res_arr)) * 1e20
+            dft_transformed_avg.append(block_avg_val)
+
+        return dft_transformed, dft_transformed_avg
 
     def complex_eval(self, complex_matrix):
         eval_arr = []
@@ -100,8 +105,15 @@ class FingerprintPipeline:
 
     def fingerprint(self, file_name, file_path=audio_config.base_path):
         audio_blocks = self.read_audio(file_name=file_name, file_path=file_path)
-        audio_blocks = self.fourier_transform(audio_blocks=audio_blocks)
-        fingerprints = self.get_range_max(audio_blocks)
-        hashes = self.hash_function(fingerprints)
+        audio_blocks, fingerprints = self.fourier_transform(audio_blocks=audio_blocks)
+        # fingerprints = self.get_range_max(audio_blocks)
+        # hashes = self.hash_function(fingerprints)
 
-        return hashes
+        return audio_blocks, fingerprints
+
+    def hash_difference(self, hash_1: List[int], hash_2: List[int]):
+        data_len = len(hash_1)
+        h1 = sum(hash_1) / data_len
+        h2 = sum(hash_2[:data_len]) / data_len
+
+        return h1 - h2
